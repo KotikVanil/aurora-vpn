@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aurora VPN</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body data-accent="aurora">
+    <canvas id="sky"></canvas>
+
+    <header class="titlebar" data-tauri-drag-region>
+      <div class="brand" id="brand" data-tauri-drag-region>
+        <svg viewBox="0 0 32 32" class="brand-logo"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--a1)"/><stop offset=".5" stop-color="var(--a2)"/><stop offset="1" stop-color="var(--a3)"/></linearGradient></defs><rect x="2" y="2" width="28" height="28" rx="8" fill="url(#lg)"/><path d="M9 9.5c4.5 1 9.5 1 14 0v6.5c0 5-3.5 7.6-7 8.8-3.5-1.2-7-3.8-7-8.8z" fill="#fff" opacity=".95"/><path d="M9.5 15.5c2.5-1.8 4.5 1.6 6.5 0s4-1.8 6.5 0" stroke="var(--a1)" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+        <span class="brand-name" data-tauri-drag-region>Aurora</span>
+        <span class="brand-tag" id="demoTag" hidden>демо</span>
+      </div>
+      <div class="titlebar-status" id="titleStatus" data-tauri-drag-region></div>
+      <div class="win-btns">
+        <button class="win-btn" data-win="minimize" title="Свернуть"><svg viewBox="0 0 12 12"><path d="M2 6h8" /></svg></button>
+        <button class="win-btn" data-win="maximize" title="Развернуть"><svg viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1.5" /></svg></button>
+        <button class="win-btn close" data-win="hide" title="Свернуть в трей"><svg viewBox="0 0 12 12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" /></svg></button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <nav class="sidebar">
+        <button class="nav active" data-page="home" title="Главная">
+          <svg viewBox="0 0 24 24"><path d="M12 3v9" /><path d="M6.3 6.3a8 8 0 1 0 11.4 0" /></svg><span>Главная</span>
+        </button>
+        <button class="nav" data-page="servers" title="Серверы">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" /></svg><span>Серверы</span>
+        </button>
+        <button class="nav" data-page="rules" title="Маршруты">
+          <svg viewBox="0 0 24 24"><path d="M4 6h10M4 12h16M4 18h7" /><circle cx="17" cy="6" r="2.5" /><circle cx="14" cy="18" r="2.5" /></svg><span>Маршруты</span>
+        </button>
+        <button class="nav" data-page="settings" title="Настройки">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" /></svg><span>Настройки</span>
+        </button>
+        <button class="nav" data-page="logs" title="Журнал">
+          <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3" /><path d="M8 8h8M8 12h8M8 16h5" /></svg><span>Журнал</span>
+        </button>
+        <div class="nav-spacer"></div>
+        <div class="mini-speed" id="miniSpeed">
+          <div><i class="arrow down">↓</i><b id="miniDown">0</b></div>
+          <div><i class="arrow up">↑</i><b id="miniUp">0</b></div>
+        </div>
+      </nav>
+
+      <main class="pages">
+        <!-- ================================================= HOME -->
+        <section class="page active" id="page-home">
+          <div class="home-grid">
+            <div class="home-left">
+              <div class="hero">
+                <div class="orb-wrap" id="orbWrap">
+                  <canvas id="orbParticles" width="420" height="420"></canvas>
+                  <div class="orb-ring r1"></div>
+                  <div class="orb-ring r2"></div>
+                  <div class="orb-ring r3"></div>
+                  <button class="orb" id="orb" aria-label="Подключить">
+                    <svg viewBox="0 0 24 24" class="orb-icon"><path d="M12 3.5v8" /><path d="M6.6 6.9a7.5 7.5 0 1 0 10.8 0" /></svg>
+                  </button>
+                </div>
+                <div class="status-line">
+                  <div class="status-title" id="statusTitle">Не подключено</div>
+                  <div class="status-sub" id="statusSub">Нажми на сферу или пробел</div>
+                </div>
+              </div>
+
+              <div class="seg-row">
+                <div class="seg" id="modeSeg">
+                  <button data-v="proxy" title="Системный прокси: браузеры и большинство программ">
+                    <svg viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6" /></svg>Прокси
+                  </button>
+                  <button data-v="tun" title="TUN: весь трафик ПК, включая игры (нужен админ)">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="6" /><circle cx="9" cy="12" r="2" /></svg>TUN
+                  </button>
+                  <span class="seg-glider"></span>
+                </div>
+                <div class="seg" id="routeSeg">
+                  <button data-v="global" title="Весь трафик через VPN">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17" /></svg>Всё
+                  </button>
+                  <button data-v="smart" title="Российские сайты напрямую, остальное через VPN">
+                    <svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6L20 9.5l-4 4 1 6-5-2.8L7 19.5l1-6-4-4 5.4-.9z" /></svg>Умный
+                  </button>
+                  <span class="seg-glider"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="home-right">
+              <div class="card server-card" id="serverCard">
+                <div class="card-label">Сервер</div>
+                <div class="server-main">
+                  <div class="flag-big" id="curFlag"></div>
+                  <div class="server-text">
+                    <div class="server-name" id="curName">Сервер не выбран</div>
+                    <div class="server-proto" id="curProto">Добавь ключ во вкладке «Серверы»</div>
+                  </div>
+                  <div class="ping-pill" id="curPing">—</div>
+                </div>
+                <div class="server-actions">
+                  <button class="btn ghost sm" id="btnPickServer">Сменить</button>
+                  <button class="btn ghost sm" id="btnBest">⚡ Лучший</button>
+                  <button class="btn ghost sm" id="btnRealDelay" disabled>Реальная задержка</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-label">Скорость</div>
+                  <div class="timer" id="timer">00:00:00</div>
+                </div>
+                <div class="speed-nums">
+                  <div class="speed-num down"><span class="lbl">Загрузка</span><b id="spDown">0 Б/с</b></div>
+                  <div class="speed-num up"><span class="lbl">Отдача</span><b id="spUp">0 Б/с</b></div>
+                </div>
+                <canvas id="graph" height="120"></canvas>
+                <div class="totals">
+                  <span>Всего ↓ <b id="totDown">0 Б</b></span><span>↑ <b id="totUp">0 Б</b></span>
+                </div>
+              </div>
+
+              <div class="card ip-card" id="ipCard">
+                <div class="card-label">Твой IP в интернете</div>
+                <div class="ip-row">
+                  <div class="flag-sm" id="ipFlag"></div>
+                  <div>
+                    <div class="ip-addr" id="ipAddr">—</div>
+                    <div class="ip-geo" id="ipGeo">появится после подключения</div>
+                  </div>
+                  <button class="icon-btn" id="btnIpRefresh" title="Обновить"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" /></svg></button>
+                </div>
+              </div>
+
+              <div class="card sub-card" id="subCard" hidden>
+                <div class="card-head">
+                  <div class="card-label" id="subTitle">Подписка</div>
+                  <div class="sub-expire" id="subExpire"></div>
+                </div>
+                <div class="usage-bar"><div class="usage-fill" id="subFill"></div></div>
+                <div class="usage-text" id="subUsage"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================= SERVERS -->
+        <section class="page" id="page-servers">
+          <div class="page-head">
+            <h1>Серверы</h1>
+            <div class="head-actions">
+              <button class="btn ghost" id="btnPingAll"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" /></svg>Пинг всех</button>
+              <button class="btn ghost" id="btnSortPing">Сортировать</button>
+            </div>
+          </div>
+
+          <div class="card import-card" id="importCard">
+            <div class="import-row">
+              <textarea id="importText" spellcheck="false" placeholder="Вставь ключ (vless://, vmess://, trojan://, ss://, hy2://, tuic://) или ссылку подписки https://…  Можно несколько строк."></textarea>
+              <div class="import-btns">
+                <button class="btn primary" id="btnImport">Добавить</button>
+                <button class="btn ghost" id="btnPaste"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4V3h6v1" /></svg>Из буфера</button>
+              </div>
+            </div>
+            <div class="import-hint">Как в Happ / Incy: скопируй ключ или ссылку подписки у провайдера и вставь сюда. Подойдут и ссылки вида <code>v2raytun://import/https://…</code>.</div>
+          </div>
+
+          <div class="search-row">
+            <input id="serverSearch" placeholder="Поиск по названию, стране, протоколу…" />
+          </div>
+          <div id="serverGroups"></div>
+          <div class="empty" id="serversEmpty">
+            <div class="empty-orb"></div>
+            <div>Здесь пока пусто. Вставь ключ или подписку выше.</div>
+          </div>
+        </section>
+
+        <!-- ================================================= RULES -->
+        <section class="page" id="page-rules">
+          <div class="page-head"><h1>Маршруты</h1></div>
+          <div class="cards-2">
+            <div class="card">
+              <div class="row-toggle">
+                <div>
+                  <div class="opt-title">Умный режим (RU напрямую)</div>
+                  <div class="opt-desc">Сайты .ru/.рф, российские сервисы и IP идут мимо VPN: Госуслуги, банки и маркетплейсы работают как обычно.</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="optSmart" /><span></span></label>
+              </div>
+              <div class="row-toggle">
+                <div>
+                  <div class="opt-title">Блокировать рекламу и трекеры</div>
+                  <div class="opt-desc">Встроенная база рекламных доменов. Работает в обоих режимах.</div>
+                </div>
+                <label class="switch"><input type="checkbox" id="optAds" /><span></span></label>
+              </div>
+            </div>
+            <div class="card">
+              <div class="opt-title">Всегда через VPN</div>
+              <div class="opt-desc">Домены, которые идут через VPN даже в умном режиме. По одному на строку.</div>
+              <textarea class="rules-area" id="optProxyDomains" spellcheck="false" placeholder="youtube.com&#10;instagram.com"></textarea>
+            </div>
+            <div class="card">
+              <div class="opt-title">Всегда напрямую</div>
+              <div class="opt-desc">Домены мимо VPN. Подходит для локальных сервисов и сайтов, которые не пускают с VPN.</div>
+              <textarea class="rules-area" id="optDirectDomains" spellcheck="false" placeholder="sber.ru&#10;local.lan"></textarea>
+            </div>
+            <div class="card">
+              <div class="opt-title">Приложения мимо VPN <span class="chip">split tunnel</span></div>
+              <div class="opt-desc">Имена .exe, чей трафик идёт напрямую. Полезно в TUN-режиме: например, игры с RU-серверами или торрент.</div>
+              <textarea class="rules-area" id="optDirectApps" spellcheck="false" placeholder="steam.exe&#10;qbittorrent.exe"></textarea>
+            </div>
+          </div>
+          <div class="rules-foot">
+            <button class="btn primary" id="btnSaveRules">Сохранить правила</button>
+            <span class="muted" id="rulesNote">Изменения применятся при следующем подключении.</span>
+          </div>
+        </section>
+
+        <!-- ================================================= SETTINGS -->
+        <section class="page" id="page-settings">
+          <div class="page-head"><h1>Настройки</h1></div>
+          <div class="cards-2">
+            <div class="card">
+              <div class="card-label">Подключение</div>
+              <div class="row-field">
+                <div><div class="opt-title">Движок</div><div class="opt-desc">«Авто» сам выбирает sing-box или Xray (для xhttp/kcp).</div></div>
+                <select id="setEngine">
+                  <option value="auto">Авто</option>
+                  <option value="singbox">sing-box</option>
+                  <option value="xray">Xray + sing-box</option>
+                </select>
+              </div>
+              <div class="row-field">
+                <div><div class="opt-title">DNS через VPN</div><div class="opt-desc">Защищённый DNS-over-HTTPS внутри туннеля.</div></div>
+                <select id="setDns">
+                  <option value="cloudflare">Cloudflare 1.1.1.1</option>
+                  <option value="google">Google 8.8.8.8</option>
+                  <option value="quad9">Quad9 9.9.9.9</option>
+                  <option value="adguard">AdGuard (без рекламы)</option>
+                </select>
+              </div>
+              <div class="row-field">
+                <div><div class="opt-title">Порт прокси</div><div class="opt-desc">Локальный SOCKS5/HTTP порт.</div></div>
+                <input type="number" id="setPort" min="1025" max="65535" />
+              </div>
+              <div class="row-field">
+                <div><div class="opt-title">Стек TUN</div><div class="opt-desc">Если игры лагают, попробуй system.</div></div>
+                <select id="setStack">
+                  <option value="mixed">mixed</option>
+                  <option value="system">system</option>
+                  <option value="gvisor">gvisor</option>
+                </select>
+              </div>
+              <div class="row-toggle">
+                <div><div class="opt-title">Фрагментация TLS</div><div class="opt-desc">Режет TLS-приветствие на части, помогает против DPI. Не для Reality.</div></div>
+                <label class="switch"><input type="checkbox" id="setFragment" /><span></span></label>
+              </div>
+              <div class="row-toggle">
+                <div><div class="opt-title">Доступ из локальной сети</div><div class="opt-desc">Телефон или ТВ в той же Wi-Fi смогут ходить через этот ПК.</div></div>
+                <label class="switch"><input type="checkbox" id="setLan" /><span></span></label>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-label">Приложение</div>
+              <div class="row-toggle">
+                <div><div class="opt-title">Запуск вместе с Windows</div><div class="opt-desc">Стартует свёрнутым в трей.</div></div>
+                <label class="switch"><input type="checkbox" id="setAutostart" /><span></span></label>
+              </div>
+              <div class="row-toggle">
+                <div><div class="opt-title">Подключаться при запуске</div><div class="opt-desc">К последнему выбранному серверу.</div></div>
+                <label class="switch"><input type="checkbox" id="setAutoConnect" /><span></span></label>
+              </div>
+              <div class="row-toggle">
+                <div><div class="opt-title">Авто-переподключение</div><div class="opt-desc">Если ядро упало, переподключиться само.</div></div>
+                <label class="switch"><input type="checkbox" id="setAutoReconnect" /><span></span></label>
+              </div>
+              <div class="row-toggle">
+                <div><div class="opt-title">Звуки</div><div class="opt-desc">Синтезированные звуки подключения.</div></div>
+                <label class="switch"><input type="checkbox" id="setSounds" /><span></span></label>
+              </div>
+              <div class="row-field">
+                <div><div class="opt-title">Обновлять подписки</div></div>
+                <select id="setSubUpdate">
+                  <option value="0">Вручную</option>
+                  <option value="6">Каждые 6 ч</option>
+                  <option value="12">Каждые 12 ч</option>
+                  <option value="24">Раз в сутки</option>
+                </select>
+              </div>
+              <div class="row-field">
+                <div><div class="opt-title">Подробный журнал</div></div>
+                <select id="setLog">
+                  <option value="warn">Только ошибки</option>
+                  <option value="info">Подробно</option>
+                </select>
+              </div>
+              <div class="opt-title" style="margin-top: 14px">Цвет сияния</div>
+              <div class="accents" id="accents">
+                <button data-accent="aurora" title="Аврора"></button>
+                <button data-accent="sunset" title="Закат"></button>
+                <button data-accent="matrix" title="Матрица"></button>
+                <button data-accent="ice" title="Лёд"></button>
+              </div>
+            </div>
+          </div>
+          <div class="card update-card" id="updateCard">
+            <div class="update-row">
+              <div class="update-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg></div>
+              <div class="update-text">
+                <div class="opt-title">Обновления <span class="chip" id="verChip">v—</span></div>
+                <div class="opt-desc" id="updateStatus">Новые версии приходят с GitHub (KotikVanil/aurora-vpn).</div>
+                <div class="usage-bar" id="updateBar" hidden><div class="usage-fill" id="updateFill"></div></div>
+              </div>
+              <label class="switch" title="Проверять при запуске"><input type="checkbox" id="setAutoUpdate" /><span></span></label>
+              <button class="btn primary" id="btnCheckUpdate">Проверить</button>
+            </div>
+          </div>
+          <div class="about">
+            <span id="aboutText">Aurora VPN · ядра sing-box и Xray</span>
+            <button class="btn ghost sm" id="btnOpenData">Папка данных</button>
+            <button class="btn ghost sm danger" id="btnQuit">Выйти полностью</button>
+          </div>
+        </section>
+
+        <!-- ================================================= LOGS -->
+        <section class="page" id="page-logs">
+          <div class="page-head">
+            <h1>Журнал</h1>
+            <div class="head-actions">
+              <input id="logFilter" placeholder="Фильтр…" />
+              <button class="btn ghost" id="btnCopyLog">Копировать</button>
+              <button class="btn ghost" id="btnClearLog">Очистить</button>
+            </div>
+          </div>
+          <div class="log-box" id="logBox"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- server picker / modals -->
+    <div class="modal-back" id="modalBack" hidden>
+      <div class="modal" id="modal"></div>
+    </div>
+    <div class="toasts" id="toasts"></div>
+    <div class="warp" id="warp"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+release/
+src-tauri/target/
+src-tauri/gen/
+# Cores and rule sets are downloaded by tools/fetch_cores.py
+src-tauri/bin/
+tools/out/
+*.log

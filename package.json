@@ -1,0 +1,22 @@
+{
+  "name": "aurora-vpn",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "tauri": "tauri",
+    "test:configs": "node tools/test_configs.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "flag-icons": "^7.5.0",
+    "qrcode-generator": "^1.4.4",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "vite": "^6"
+  }
+}
