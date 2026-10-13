@@ -153,7 +153,16 @@
             <h1>Серверы</h1>
             <div class="head-actions">
               <button class="btn ghost" id="btnPingAll"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" /></svg>Пинг всех</button>
-              <button class="btn ghost" id="btnSortPing">Сортировать</button>
+            </div>
+          </div>
+          <div class="sort-row">
+            <span class="muted">Вид:</span>
+            <div class="seg sort-seg" id="sortSeg">
+              <button data-v="provider" title="Как отдаёт провайдер, с его разделами">Провайдер</button>
+              <button data-v="smart" title="По категориям: игровые, LTE, YouTube, нейросети, запасные…">✨ Умная</button>
+              <button data-v="ping" title="От быстрых к медленным">Пинг</button>
+              <button data-v="protocol" title="Группы по протоколу">Протокол</button>
+              <span class="seg-glider"></span>
             </div>
           </div>
 

@@ -998,6 +998,33 @@ export function needsXray(p) {
   return false;
 }
 
+// ---------------------------------------------------------------- smart categories
+
+/** Ordered: the first matching category wins, the list order is the display order. */
+export const SERVER_CATEGORIES = [
+  { id: "auto", title: "✨ Авто-выбор", re: /\bauto\b|авто|самый быстр|лучш|best|балансир/i },
+  { id: "game", title: "⚡ Игровые и быстрые", re: /игр|game|gaming|быстр|fast|low.?ping|пинг|⚡|🎮|brawl|pubg|standoff|cs2|dota|valorant/i },
+  { id: "lte", title: "📶 Для LTE и мобильного", re: /\blte\b|\b[45]g\b|мобил|mobile|сотов|cellular|📶/i },
+  { id: "bypass", title: "🛡 Обход белых списков", re: /бел(ые|ых) спис|whitelist|обход|bypass|антиглуш|глуш|wl\b/i },
+  { id: "video", title: "🎬 YouTube и видео", re: /youtube|ютуб|\byt\b|stream|видео|video|twitch|netflix|кино|🎬|📺/i },
+  { id: "ai", title: "🤖 Нейросети", re: /нейро|neuro|\bai\b|\bии\b|gpt|openai|claude|gemini|🤖/i },
+  { id: "reserve", title: "🛟 Запасные", re: /запас|резерв|reserve|backup|🛟/i },
+];
+const MAIN_CATEGORY = { id: "main", title: "🌍 Основные" };
+
+/** Category of a server by keywords in its name and provider description. */
+export function serverCategory(p) {
+  const text = `${p.name || ""} ${p.desc || ""}`;
+  return SERVER_CATEGORIES.find((c) => c.re.test(text)) || MAIN_CATEGORY;
+}
+
+/** Display order of categories, main servers just before the reserve ones. */
+export function categoryOrder(id) {
+  const order = ["auto", "game", "lte", "bypass", "video", "ai", "main", "reserve"];
+  const i = order.indexOf(id);
+  return i < 0 ? order.length : i;
+}
+
 export function isUdpProtocol(p) {
   return ["hysteria2", "hysteria", "tuic", "wireguard"].includes(p.protocol);
 }

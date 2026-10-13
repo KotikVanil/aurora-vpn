@@ -14,6 +14,8 @@ import {
   isUdpProtocol,
   newId,
   SUB_USER_AGENTS,
+  serverCategory,
+  categoryOrder,
 } from "./core/links.js";
 import { buildConfigs, buildLatencyConfig, DEFAULT_SETTINGS, CLASH_PORT } from "./core/config.js";
 
@@ -33,6 +35,7 @@ const state = {
     autoConnect: false,
     autoReconnect: true,
     autoUpdateCheck: true,
+    sortMode: "provider", // provider | smart | ping | protocol
     subUpdateHours: 12,
     pendingConnect: false,
   },
@@ -413,6 +416,7 @@ function filteredProfiles(list) {
 }
 
 function renderServers() {
+  setSeg($("#sortSeg"), state.app.sortMode || "provider");
   const root = $("#serverGroups");
   let html = "";
   for (const sub of state.subs) {
@@ -433,7 +437,7 @@ function renderServers() {
         <button class="icon-btn" data-subdel="${sub.id}" title="Удалить подписку"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg></button>
       </div>
       ${sub.announce ? `<div class="muted" style="margin:0 4px 10px">📣 ${esc(sub.announce)}</div>` : ""}
-      <div class="server-list">${items.map(srvHtml).join("")}</div>
+      <div class="server-list">${viewHtml(items)}</div>
     </div>`;
   }
   const manual = filteredProfiles(state.profiles.filter((p) => !p.subId));
@@ -444,7 +448,7 @@ function renderServers() {
         <div class="group-title">Мои ключи</div>
         <div class="group-meta">${manual.length} серв.</div>
       </div>
-      <div class="server-list">${manual.map(srvHtml).join("")}</div>
+      <div class="server-list">${viewHtml(manual)}</div>
     </div>`;
   }
   root.innerHTML = html;
@@ -840,27 +844,58 @@ async function realTest(list) {
 }
 
 $("#btnPingAll").addEventListener("click", () => realTest(state.profiles));
-$("#btnSortPing").addEventListener("click", () => {
-  // Sort inside each provider section, so "── ⚡ БЫСТРЫЕ ──" headers keep their servers.
-  const key = (p) => (p.ping == null || p.ping < 0 ? 1e9 : p.ping);
-  const out = [];
-  let block = [];
-  const flush = () => {
-    block.sort((a, b) => key(a) - key(b));
-    out.push(...block);
-    block = [];
-  };
-  for (const p of state.profiles) {
-    if (p.isSection) {
-      flush();
-      out.push(p);
-    } else block.push(p);
+// Server list views. Only the display changes; state.profiles keeps the provider order.
+const pingKey = (p) => (p.ping == null || p.ping < 0 ? 1e9 : p.ping);
+
+function catHead(title, count) {
+  return `<div class="cat-head"><span>${esc(title)}</span><i>${count}</i></div>`;
+}
+
+/** Plain card for a provider section entry when the view regroups servers. */
+function srvCard(p) {
+  return srvHtml(p.isSection ? { ...p, isSection: false, name: p.name.replace(/^[\s─━—–=\-_~•·]+|[\s─━—–=\-_~•·]+$/g, "") } : p);
+}
+
+function viewHtml(items) {
+  const mode = state.app.sortMode || "provider";
+  if (mode === "ping") return [...items].sort((a, b) => pingKey(a) - pingKey(b)).map(srvCard).join("");
+  if (mode === "smart" || mode === "protocol") {
+    const groups = new Map();
+    let sectionCat = null; // servers under "── ⚡ БЫСТРЫЕ ──" inherit that category
+    for (const p of items) {
+      let key;
+      if (mode === "smart") {
+        key = serverCategory(p);
+        if (p.isSection) sectionCat = key.id === "main" ? null : key;
+        else if (key.id === "main" && sectionCat) key = sectionCat;
+      } else {
+        const proto = protocolLabel(p).split(" · ").slice(0, 2).join(" · ");
+        key = { id: proto, title: proto };
+      }
+      if (!groups.has(key.id)) groups.set(key.id, { title: key.title, list: [] });
+      groups.get(key.id).list.push(p);
+    }
+    const ordered = [...groups.entries()].sort((a, b) =>
+      mode === "smart" ? categoryOrder(a[0]) - categoryOrder(b[0]) : b[1].list.length - a[1].list.length,
+    );
+    return ordered
+      .map(([, g]) => catHead(g.title, g.list.length) + [...g.list].sort((a, b) => pingKey(a) - pingKey(b)).map(srvCard).join(""))
+      .join("");
   }
-  flush();
-  state.profiles = out;
+  return items.map(srvHtml).join("");
+}
+
+function setSortMode(mode) {
+  state.app.sortMode = mode;
+  setSeg($("#sortSeg"), mode);
   save();
   renderServers();
-  toast("Отсортировано по пингу");
+}
+$("#sortSeg").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b || b.dataset.v === state.app.sortMode) return;
+  play("click");
+  setSortMode(b.dataset.v);
 });
 
 async function pickBest() {

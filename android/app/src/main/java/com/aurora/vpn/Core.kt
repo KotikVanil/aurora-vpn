@@ -36,6 +36,7 @@ object Core {
             if (tail.size >= 300) tail.removeFirst()
             tail.addLast("[$src] $clean")
         }
+        android.util.Log.i("Aurora", "[$src] $clean")
         emit("core-log", JSONObject().put("src", src).put("line", clean))
     }
 
@@ -55,6 +56,23 @@ object Core {
             val out = File(dir, name)
             if (out.exists() && out.length() > 0) continue
             ctx.assets.open("rules/$name").use { i -> out.outputStream().use { i.copyTo(it) } }
+        }
+    }
+
+    /**
+     * A sing-box left behind by a crashed app process keeps holding the proxy port.
+     * Same uid, so we may kill it: find it through /proc.
+     */
+    fun killStrayCores() {
+        val me = android.os.Process.myPid()
+        File("/proc").listFiles()?.forEach { dir ->
+            val pid = dir.name.toIntOrNull() ?: return@forEach
+            if (pid == me) return@forEach
+            val cmd = runCatching { File(dir, "cmdline").readText() }.getOrNull() ?: return@forEach
+            if (cmd.contains("libsingbox.so")) {
+                android.os.Process.killProcess(pid)
+                log("app", "Остановлен старый процесс sing-box ($pid)")
+            }
         }
     }
 

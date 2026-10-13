@@ -65,6 +65,12 @@ class AuroraVpnService : VpnService() {
                 return START_NOT_STICKY
             }
             else -> {
+                // null / android.net.VpnService: restarted by the system (after a crash, or
+                // "Always-on VPN"). Reconnect with the last config if there is one.
+                if (intent?.action != ACTION_START && !hasLastConfig(this)) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
                 if (Core.running || Core.connecting) return START_STICKY
                 Core.connecting = true
                 startForegroundCompat(buildNotification("Подключение…", ""))
@@ -98,6 +104,7 @@ class AuroraVpnService : VpnService() {
             val port = meta.getInt("port")
 
             // 1. sing-box as a local proxy.
+            Core.killStrayCores()
             val exe = Core.singBox(this)
             val pb = ProcessBuilder(exe.absolutePath, "run", "-c", File(run, "singbox.json").absolutePath, "-D", run.absolutePath)
                 .directory(run)
@@ -105,7 +112,11 @@ class AuroraVpnService : VpnService() {
             val proc = pb.start()
             singbox = proc
             thread(name = "singbox-log") {
-                proc.inputStream.bufferedReader().forEachLine { Core.log("sing-box", it) }
+                // The stream closes when the process is destroyed: that is the normal end.
+                try {
+                    proc.inputStream.bufferedReader().forEachLine { Core.log("sing-box", it) }
+                } catch (_: java.io.IOException) {
+                }
             }
             if (!waitPort(port, proc, 6000)) {
                 throw IllegalStateException("sing-box не запустился.\n${Core.tail(12)}")

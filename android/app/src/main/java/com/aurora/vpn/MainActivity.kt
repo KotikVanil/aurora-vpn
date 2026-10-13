@@ -13,6 +13,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,10 +73,15 @@ class MainActivity : ComponentActivity() {
             }
             addJavascriptInterface(Bridge(), "AuroraAndroid")
         }
-        setContentView(web)
+        // WebView ignores its own padding, so the system-bar insets go on a container.
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#05070F"))
+            addView(web, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        }
+        setContentView(root)
 
         // Keep the UI clear of the status and navigation bars.
-        ViewCompat.setOnApplyWindowInsetsListener(web) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             WindowInsetsCompat.CONSUMED
