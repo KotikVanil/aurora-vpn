@@ -39,8 +39,9 @@ def main():
     # Android: same web UI, packaged by Gradle (signed with android/keystore).
     run(["npm", "run", "build:android-web"])
     env = dict(os.environ, JAVA_HOME=r"C:\Program Files\Android\Android Studio\jbr")
-    subprocess.run(["gradlew.bat", "assembleRelease", "--console=plain", "-q"],
-                   cwd=os.path.join(ROOT, "android"), check=True, shell=True, env=env)
+    android = os.path.join(ROOT, "android")
+    subprocess.run([os.path.join(android, "gradlew.bat"), "assembleRelease", "--console=plain", "-q"],
+                   cwd=android, check=True, env=env)
     apk_asset = f"Aurora-VPN-{version}.apk"
     shutil.copyfile(os.path.join(ROOT, "android", "app", "build", "outputs", "apk", "release", "app-release.apk"),
                     os.path.join(out, apk_asset))
