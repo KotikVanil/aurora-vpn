@@ -7,3 +7,16 @@ src-tauri/gen/
 src-tauri/bin/
 tools/out/
 *.log
+
+# Android: natives come from tools/fetch_android.py, web UI from npm run build:android-web
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/libs/
+android/app/src/main/jniLibs/
+android/app/src/main/assets/web/
+android/app/src/main/assets/rules/
+# Release signing key: keep a private backup, never commit it
+android/keystore.properties
+android/keystore/

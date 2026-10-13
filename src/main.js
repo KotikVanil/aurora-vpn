@@ -1,5 +1,5 @@
 import qrcode from "qrcode-generator";
-import { call, on, windowAction, isMock } from "./backend.js";
+import { call, on, windowAction, isMock, IS_ANDROID, IS_MOBILE } from "./backend.js";
 import { startAurora, PALETTES } from "./aurora.js";
 import { play, sound } from "./sound.js";
 import {
@@ -301,13 +301,14 @@ function setStatus(s) {
   const sub = $("#statusSub");
   if (s === "on") {
     title.textContent = "Защищено";
-    sub.textContent = `${cleanName(p?.name) || ""} · ${state.settings.mode === "tun" ? "TUN, весь трафик" : "системный прокси"} · ${rt.engine}`;
+    const how = IS_MOBILE ? "весь трафик телефона" : state.settings.mode === "tun" ? "TUN, весь трафик" : "системный прокси";
+    sub.textContent = `${cleanName(p?.name) || ""} · ${how}${IS_MOBILE ? "" : ` · ${rt.engine}`}`;
   } else if (s === "connecting") {
     title.textContent = "Подключение…";
     sub.textContent = `${cleanName(p?.name) || ""}`;
   } else {
     title.textContent = "Не подключено";
-    sub.textContent = p ? "Нажми на сферу или пробел" : "Добавь ключ во вкладке «Серверы»";
+    sub.textContent = p ? (IS_MOBILE ? "Нажми на сферу" : "Нажми на сферу или пробел") : "Добавь ключ во вкладке «Серверы»";
   }
   $("#btnRealDelay").disabled = s !== "on";
   $("#titleStatus").textContent = s === "on" ? `● ${cleanName(p?.name)}` : "";
@@ -886,20 +887,25 @@ async function connect() {
     showPage("servers");
     return;
   }
-  if (state.settings.mode === "tun" && !rt.admin && !isMock) return askAdmin();
+  if (!IS_ANDROID && state.settings.mode === "tun" && !rt.admin && !isMock) return askAdmin();
   rt.busy = true;
   rt.userStop = false;
   rt.realDelay = null;
   setStatus("connecting");
   play("charge");
   try {
-    const { singbox, xray, engine } = buildConfigs(p, state.settings, { rulesDir: rt.paths.rules_dir, runDir: rt.paths.run_dir });
+    const cfgSettings = IS_ANDROID ? { ...state.settings, platform: "android" } : state.settings;
+    const { singbox, xray, engine } = buildConfigs(p, cfgSettings, { rulesDir: rt.paths.rules_dir, runDir: rt.paths.run_dir });
     rt.engine = engine;
-    appLog(`Подключаюсь к «${cleanName(p.name)}» (${protocolLabel(p)}), ядро: ${engine}, режим: ${state.settings.mode === "tun" ? "TUN" : "прокси"}`);
+    appLog(`Подключаюсь к «${cleanName(p.name)}» (${protocolLabel(p)}), ядро: ${engine}, режим: ${IS_ANDROID ? "VPN" : state.settings.mode === "tun" ? "TUN" : "прокси"}`);
     await call("start_core", {
       singbox: JSON.stringify(singbox, null, 2),
       xray: xray ? JSON.stringify(xray, null, 2) : null,
-      systemProxyPort: state.settings.mode === "proxy" ? Number(state.settings.port) : null,
+      systemProxyPort: !IS_ANDROID && state.settings.mode === "proxy" ? Number(state.settings.port) : null,
+      // Android only: the VpnService needs the local proxy port, a title and the bypassed apps.
+      mixedPort: Number(state.settings.port),
+      serverName: cleanName(p.name),
+      bypass: state.settings.androidBypass || [],
     });
     onConnected();
   } catch (e) {
@@ -1384,7 +1390,9 @@ async function checkUpdate(silent) {
   if (!silent) status.textContent = "Проверяю…";
   try {
     const info = JSON.parse(await call("check_update"));
-    if (newerVersion(info.version, appVersion)) {
+    // One version.json serves both builds: "url" is the Windows installer, "apk" the Android package.
+    if (IS_ANDROID) info.url = info.apk || "";
+    if (info.url && newerVersion(info.version, appVersion)) {
       pendingUpdate = info;
       $("#updateCard").classList.add("has-update");
       status.textContent = `Доступна версия ${info.version}${info.notes ? `: ${info.notes}` : ""}`;
@@ -1410,7 +1418,7 @@ function showUpdateModal(info) {
   openModal(
     `<h2>Aurora ${esc(info.version)}</h2>
      <p>Сейчас стоит ${esc(appVersion)}.${info.notes ? ` Что нового: ${esc(info.notes)}` : ""}</p>
-     <p>Приложение скачает установщик (~30 МБ), закроется, обновится и запустится снова. VPN на пару секунд отключится.</p>
+     <p>${IS_ANDROID ? "Aurora скачает новую версию (~45 МБ) и откроет установку Android, останется нажать «Установить»." : "Приложение скачает установщик (~30 МБ), закроется, обновится и запустится снова. VPN на пару секунд отключится."}</p>
      <div class="modal-btns"><button class="btn ghost" data-act="later">Позже</button><button class="btn primary" data-act="go">Обновить сейчас</button></div>`,
     (m) => {
       m.querySelector('[data-act="later"]').onclick = closeModal;
@@ -1432,6 +1440,11 @@ async function installUpdate(info) {
     if (rt.status === "on") await disconnect(true);
     await call("save_state", { json: JSON.stringify(state) });
     await call("install_update", { url: info.url });
+    if (IS_ANDROID) {
+      // Android shows its own installer screen; the app keeps running until it is replaced.
+      $("#updateStatus").textContent = "Подтверди установку в окне Android";
+      $("#btnCheckUpdate").disabled = false;
+    }
   } catch (e) {
     $("#updateBar").hidden = true;
     $("#btnCheckUpdate").disabled = false;
@@ -1558,7 +1571,110 @@ function seedDemo() {
   state.selectedId = state.profiles[0].id;
 }
 
+// ================================================================= phone: split tunnel, back button
+
+let appsCache = null;
+
+function renderBypass() {
+  const box = $("#bypassIcons");
+  if (!box) return;
+  const list = state.settings.androidBypass || [];
+  if (!list.length) {
+    box.innerHTML = `<span class="muted">Все приложения идут через VPN</span>`;
+    return;
+  }
+  const byPkg = new Map((appsCache || []).map((a) => [a.package, a]));
+  const shown = list.slice(0, 7).map((pkg) => {
+    const a = byPkg.get(pkg);
+    return a?.icon ? `<img src="${a.icon}" alt="">` : `<span class="app-ph"></span>`;
+  });
+  box.innerHTML = shown.join("") + `<span class="more">${list.length} мимо VPN</span>`;
+}
+
+async function openAppPicker() {
+  openModal(
+    `<h2>Приложения мимо VPN</h2>
+     <p>Отмеченные приложения будут работать напрямую, без VPN.</p>
+     <div class="app-filter"><input id="appSearch" placeholder="Поиск приложения…" /><button class="btn ghost sm" id="appSys">Системные</button></div>
+     <div class="app-list" id="appList"><div class="muted">Загружаю список…</div></div>
+     <div class="modal-btns"><button class="btn ghost" data-act="clear">Сбросить</button><button class="btn primary" data-act="done">Готово</button></div>`,
+    async (m) => {
+      const chosen = new Set(state.settings.androidBypass || []);
+      let showSystem = false;
+      const draw = () => {
+        const q = m.querySelector("#appSearch").value.trim().toLowerCase();
+        const list = (appsCache || []).filter(
+          (a) => (showSystem || !a.system || chosen.has(a.package)) && (!q || `${a.label} ${a.package}`.toLowerCase().includes(q)),
+        );
+        m.querySelector("#appList").innerHTML =
+          list
+            .map(
+              (a) => `<div class="app-row ${chosen.has(a.package) ? "on" : ""}" data-pkg="${esc(a.package)}">
+                ${a.icon ? `<img src="${a.icon}" alt="">` : `<span class="app-ph"></span>`}
+                <div class="app-name"><b>${esc(a.label)}</b><span>${esc(a.package)}</span></div>
+                <span class="app-check"></span></div>`,
+            )
+            .join("") || `<div class="muted">Ничего не найдено</div>`;
+      };
+      m.querySelector("#appSearch").oninput = draw;
+      m.querySelector("#appSys").onclick = (e) => {
+        showSystem = !showSystem;
+        e.target.classList.toggle("primary", showSystem);
+        draw();
+      };
+      m.querySelector("#appList").onclick = (e) => {
+        const row = e.target.closest(".app-row");
+        if (!row) return;
+        const pkg = row.dataset.pkg;
+        if (chosen.has(pkg)) chosen.delete(pkg);
+        else chosen.add(pkg);
+        row.classList.toggle("on");
+        play("click");
+      };
+      m.querySelector('[data-act="clear"]').onclick = () => {
+        chosen.clear();
+        draw();
+      };
+      m.querySelector('[data-act="done"]').onclick = () => {
+        state.settings.androidBypass = [...chosen];
+        save();
+        closeModal();
+        renderBypass();
+        if (rt.status === "on") reconnectIfOn("Список приложений изменён");
+        else toast(`Мимо VPN: ${chosen.size} прил.`);
+      };
+      if (!appsCache) {
+        try {
+          appsCache = await call("get_apps");
+        } catch (e) {
+          m.querySelector("#appList").innerHTML = `<div class="muted">${esc(e.message || e)}</div>`;
+          return;
+        }
+      }
+      draw();
+      renderBypass();
+    },
+  );
+}
+
+$("#btnPickApps")?.addEventListener("click", openAppPicker);
+$("#btnVpnSettings")?.addEventListener("click", () => call("open_vpn_settings").catch(() => {}));
+
+// Android back button: close a dialog, then go home, then leave the app.
+window.__auroraBack = () => {
+  if (!$("#modalBack").hidden) {
+    closeModal();
+    return true;
+  }
+  if (!$("#page-home").classList.contains("active")) {
+    showPage("home");
+    return true;
+  }
+  return false;
+};
+
 (async function boot() {
+  if (IS_MOBILE) document.body.classList.add("mobile");
   aurora = startAurora($("#sky"));
   await load();
   try {
@@ -1577,7 +1693,8 @@ function seedDemo() {
   $("#ipFlag").innerHTML = GLOBE;
   requestAnimationFrame(frame);
   call("get_autostart").then((v) => ($("#setAutostart").checked = !!v)).catch(() => {});
-  $("#aboutText").textContent = `Aurora VPN · ядра sing-box и Xray${rt.admin ? " · права администратора" : ""}`;
+  $("#aboutText").textContent = `Aurora VPN · ядра sing-box и Xray${rt.admin && !IS_ANDROID ? " · права администратора" : ""}`;
+  renderBypass();
   call("get_hwid")
     .then((id) => {
       if (id) $("#aboutText").textContent += ` · ID устройства для подписок: ${id.slice(0, 8)}…`;
@@ -1601,6 +1718,25 @@ function seedDemo() {
   });
   await on("tray-toggle", () => toggle());
 
+  // Android: the VPN can also be switched from the quick-settings tile, the notification
+  // or the system (another VPN taking over). Keep the UI in step with the service.
+  await on("vpn-state", (s) => {
+    if (rt.busy) return;
+    if (s.running && rt.status === "off") {
+      rt.userStop = false;
+      onConnected();
+    } else if (!s.running && rt.status === "on") {
+      stopTraffic();
+      setStatus("off");
+      renderHome();
+      if (!s.user && !rt.userStop) {
+        play("error");
+        toast("VPN выключен системой или другим VPN-приложением", "warn");
+      } else play("disconnect");
+    }
+  });
+  if (IS_ANDROID && (await call("core_running").catch(() => false))) onConnected();
+
   // Clean a system proxy left behind by a crash.
   call("cleanup_proxy", { port: Number(state.settings.port) }).catch(() => {});
 
@@ -1608,7 +1744,7 @@ function seedDemo() {
     state.app.pendingConnect = false;
     save();
     connect();
-  } else if (state.app.autoConnect && current()) {
+  } else if (state.app.autoConnect && current() && rt.status === "off") {
     connect();
   }
   if (state.app.pendingConnect) {

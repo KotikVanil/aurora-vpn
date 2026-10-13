@@ -69,7 +69,7 @@
               </div>
 
               <div class="seg-row">
-                <div class="seg" id="modeSeg">
+                <div class="seg desktop-only" id="modeSeg">
                   <button data-v="proxy" title="Системный прокси: браузеры и большинство программ">
                     <svg viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6" /></svg>Прокси
                   </button>
@@ -208,10 +208,18 @@
               <div class="opt-desc">Домены мимо VPN. Подходит для локальных сервисов и сайтов, которые не пускают с VPN.</div>
               <textarea class="rules-area" id="optDirectDomains" spellcheck="false" placeholder="sber.ru&#10;local.lan"></textarea>
             </div>
-            <div class="card">
+            <div class="card desktop-only">
               <div class="opt-title">Приложения мимо VPN <span class="chip">split tunnel</span></div>
               <div class="opt-desc">Имена .exe, чей трафик идёт напрямую. Полезно в TUN-режиме: например, игры с RU-серверами или торрент.</div>
               <textarea class="rules-area" id="optDirectApps" spellcheck="false" placeholder="steam.exe&#10;qbittorrent.exe"></textarea>
+            </div>
+            <div class="card mobile-only">
+              <div class="opt-title">Приложения мимо VPN <span class="chip">split tunnel</span></div>
+              <div class="opt-desc">Выбранные приложения работают напрямую: банки, Госуслуги, маркетплейсы, игры с RU-серверами.</div>
+              <div class="bypass-row">
+                <div class="bypass-icons" id="bypassIcons"></div>
+                <button class="btn ghost" id="btnPickApps">Выбрать приложения</button>
+              </div>
             </div>
           </div>
           <div class="rules-foot">
@@ -247,7 +255,7 @@
                 <div><div class="opt-title">Порт прокси</div><div class="opt-desc">Локальный SOCKS5/HTTP порт.</div></div>
                 <input type="number" id="setPort" min="1025" max="65535" />
               </div>
-              <div class="row-field">
+              <div class="row-field desktop-only">
                 <div><div class="opt-title">Стек TUN</div><div class="opt-desc">Если игры лагают, попробуй system.</div></div>
                 <select id="setStack">
                   <option value="mixed">mixed</option>
@@ -260,16 +268,20 @@
                 <label class="switch"><input type="checkbox" id="setFragment" /><span></span></label>
               </div>
               <div class="row-toggle">
-                <div><div class="opt-title">Доступ из локальной сети</div><div class="opt-desc">Телефон или ТВ в той же Wi-Fi смогут ходить через этот ПК.</div></div>
+                <div><div class="opt-title">Доступ из локальной сети</div><div class="opt-desc">Другие устройства в той же Wi-Fi смогут ходить через это устройство (прокси на порту выше).</div></div>
                 <label class="switch"><input type="checkbox" id="setLan" /><span></span></label>
               </div>
             </div>
 
             <div class="card">
               <div class="card-label">Приложение</div>
-              <div class="row-toggle">
+              <div class="row-toggle desktop-only">
                 <div><div class="opt-title">Запуск вместе с Windows</div><div class="opt-desc">Стартует свёрнутым в трей.</div></div>
                 <label class="switch"><input type="checkbox" id="setAutostart" /><span></span></label>
+              </div>
+              <div class="row-field mobile-only">
+                <div><div class="opt-title">Постоянный VPN</div><div class="opt-desc">Android сам включит Aurora после перезагрузки. Включается в системных настройках VPN.</div></div>
+                <button class="btn ghost sm" id="btnVpnSettings">Открыть</button>
               </div>
               <div class="row-toggle">
                 <div><div class="opt-title">Подключаться при запуске</div><div class="opt-desc">К последнему выбранному серверу.</div></div>
@@ -322,7 +334,7 @@
           </div>
           <div class="about">
             <span id="aboutText">Aurora VPN · ядра sing-box и Xray</span>
-            <button class="btn ghost sm" id="btnOpenData">Папка данных</button>
+            <button class="btn ghost sm desktop-only" id="btnOpenData">Папка данных</button>
             <button class="btn ghost sm danger" id="btnQuit">Выйти полностью</button>
           </div>
         </section>

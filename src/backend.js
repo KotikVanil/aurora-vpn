@@ -2,6 +2,24 @@
 // answers instead, so the UI can be viewed without touching the network.
 
 export const IS_TAURI = typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
+// Android build: the Kotlin host injects window.AuroraAndroid (see android/.../MainActivity.kt).
+export const IS_ANDROID = typeof window !== "undefined" && !!window.AuroraAndroid;
+// Phone layout: the Android app, or ?mobile in a browser preview.
+export const IS_MOBILE = IS_ANDROID || (typeof location !== "undefined" && /[?&]mobile\b/.test(location.search));
+
+const androidPending = new Map();
+const androidListeners = {};
+let androidSeq = 0;
+if (IS_ANDROID) {
+  window.__auroraResolve = (id, ok, value) => {
+    const p = androidPending.get(id);
+    if (!p) return;
+    androidPending.delete(id);
+    if (ok) p.resolve(value);
+    else p.reject(new Error(value));
+  };
+  window.__auroraEmit = (name, payload) => (androidListeners[name] || []).forEach((f) => f(payload));
+}
 
 let tauri = null;
 async function api() {
@@ -63,17 +81,36 @@ const mock = {
     await sleep(1500);
     return Object.fromEntries(tags.map((t) => [t, Math.random() < 0.15 ? null : Math.round(90 + Math.random() * 400)]));
   },
-  get_version: () => "1.1.0",
+  get_version: () => "1.2.0",
   check_update: async () => {
     await sleep(600);
-    return JSON.stringify({ version: "1.1.0", notes: "", url: "" });
+    return JSON.stringify({ version: "1.2.0", notes: "", url: "" });
   },
   install_update: () => {
     throw new Error("В демо-режиме обновление не ставится");
   },
+  get_apps: async () => {
+    await sleep(400);
+    return [
+      ["Telegram", "org.telegram.messenger"],
+      ["Сбербанк Онлайн", "ru.sberbankmobile"],
+      ["Госуслуги", "ru.rostel"],
+      ["YouTube", "com.google.android.youtube"],
+      ["Яндекс Карты", "ru.yandex.yandexmaps"],
+      ["Chrome", "com.android.chrome"],
+    ].map(([label, pkg], i) => ({ label, package: pkg, system: i > 4, icon: "" }));
+  },
+  open_vpn_settings: () => {},
 };
 
 export async function call(cmd, args = {}) {
+  if (IS_ANDROID) {
+    return new Promise((resolve, reject) => {
+      const id = ++androidSeq;
+      androidPending.set(id, { resolve, reject });
+      window.AuroraAndroid.call(cmd, JSON.stringify(args), id);
+    });
+  }
   if (!IS_TAURI) {
     const fn = mock[cmd];
     if (!fn) throw new Error(`mock: ${cmd}`);
@@ -84,13 +121,17 @@ export async function call(cmd, args = {}) {
 }
 
 export async function on(event, handler) {
+  if (IS_ANDROID) {
+    (androidListeners[event] ||= []).push(handler);
+    return () => (androidListeners[event] = androidListeners[event].filter((f) => f !== handler));
+  }
   if (!IS_TAURI) return () => {};
   const t = await api();
   return t.listen(event, (e) => handler(e.payload));
 }
 
 export async function windowAction(action) {
-  if (!IS_TAURI) return;
+  if (!IS_TAURI || IS_ANDROID) return;
   const t = await api();
   if (action === "minimize") return t.win.minimize();
   if (action === "maximize") return t.win.toggleMaximize();
@@ -98,4 +139,4 @@ export async function windowAction(action) {
   if (action === "drag") return t.win.startDragging();
 }
 
-export const isMock = !IS_TAURI;
+export const isMock = !IS_TAURI && !IS_ANDROID;

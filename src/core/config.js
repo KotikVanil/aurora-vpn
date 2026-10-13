@@ -264,6 +264,13 @@ export function buildConfigs(p, settings, paths) {
   const inbounds = [
     { type: "mixed", tag: "mixed-in", listen: s.allowLan ? "0.0.0.0" : "127.0.0.1", listen_port: Number(s.port) || 2080 },
   ];
+  // On Android the VpnService TUN belongs to Xray (in-process); sing-box is only the
+  // local proxy behind it, and per-app bypass is done by the VpnService itself.
+  const android = s.platform === "android";
+  if (android) {
+    s.mode = "proxy";
+    s.directApps = [];
+  }
   if (s.mode === "tun") {
     inbounds.unshift({
       type: "tun",
@@ -294,7 +301,7 @@ export function buildConfigs(p, settings, paths) {
     { ip_is_private: true, outbound: "direct" },
   ];
   const directApps = (s.directApps || []).filter(Boolean);
-  if (useXray) directApps.push("xray.exe");
+  if (useXray && !android) directApps.push("xray.exe");
   if (directApps.length) rules.push({ process_name: [...new Set(directApps)], outbound: "direct" });
   if (s.proxyDomains?.length) rules.push({ domain_suffix: s.proxyDomains, outbound: "proxy" });
   if (s.blockAds) {
@@ -334,7 +341,7 @@ export function buildConfigs(p, settings, paths) {
       rules,
       rule_set: ruleSets,
       final: "proxy",
-      auto_detect_interface: true,
+      auto_detect_interface: !android,
       default_domain_resolver: "direct-dns",
     },
     experimental: {

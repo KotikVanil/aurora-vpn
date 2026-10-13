@@ -4,8 +4,16 @@
 Внутри ядра [sing-box](https://github.com/SagerNet/sing-box) и [Xray](https://github.com/XTLS/Xray-core),
 интерфейс на Tauri 2 с живым WebGL-«сиянием».
 
-**[Скачать последнюю версию](https://github.com/KotikVanil/aurora-vpn/releases/latest)** — файл `Aurora-VPN-x.y.z-setup.exe`.
+**[Скачать последнюю версию](https://github.com/KotikVanil/aurora-vpn/releases/latest)**:
+`Aurora-VPN-x.y.z-setup.exe` для Windows, `Aurora-VPN-x.y.z.apk` для Android (arm64, Android 8+).
 Дальше приложение обновляется само (Настройки → Обновления).
+
+### Android
+
+Тот же интерфейс и та же логика ключей/подписок, что на ПК. Весь трафик телефона идёт через VPN
+(VpnService → Xray TUN → sing-box), выбранные приложения можно пустить мимо VPN (банки, Госуслуги).
+Есть плитка в шторке быстрых настроек, уведомление с кнопкой «Отключить» и поддержка
+системного «Постоянного VPN».
 
 ## Возможности
 
@@ -33,10 +41,21 @@ python tools/fetch_cores.py      # скачивает sing-box, Xray и гео-�
 npm run tauri build              # установщик: src-tauri/target/release/bundle/nsis/
 ```
 
+Android (нужны Android SDK 36 и JDK 17+):
+
+```
+python tools/fetch_android.py    # libv2ray.aar (Xray с TUN) и sing-box под arm64
+npm run build:android-web        # интерфейс в android/app/src/main/assets/web
+cd android && gradlew assembleRelease
+```
+
+Для подписи релиза нужен `android/keystore.properties` со своим ключом (в git не хранится).
+
 Проверки без подключения к VPN:
 
 ```
 node tools/test_configs.mjs              # все протоколы и форматы -> sing-box check / xray -test
+node tools/test_android_configs.mjs      # конфиги Android-цепочки (Xray TUN -> sing-box)
 node tools/test_sub.mjs <ссылка>         # разбор реальной подписки (ключи не печатаются)
 ```
 

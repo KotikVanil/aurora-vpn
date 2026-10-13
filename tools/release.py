@@ -35,17 +35,29 @@ def main():
     os.makedirs(out, exist_ok=True)
     asset = f"Aurora-VPN-{version}-setup.exe"
     shutil.copyfile(os.path.join(bundle, built), os.path.join(out, asset))
+
+    # Android: same web UI, packaged by Gradle (signed with android/keystore).
+    run(["npm", "run", "build:android-web"])
+    env = dict(os.environ, JAVA_HOME=r"C:\Program Files\Android\Android Studio\jbr")
+    subprocess.run(["gradlew.bat", "assembleRelease", "--console=plain", "-q"],
+                   cwd=os.path.join(ROOT, "android"), check=True, shell=True, env=env)
+    apk_asset = f"Aurora-VPN-{version}.apk"
+    shutil.copyfile(os.path.join(ROOT, "android", "app", "build", "outputs", "apk", "release", "app-release.apk"),
+                    os.path.join(out, apk_asset))
+
+    # One version.json for both: "url" = Windows installer, "apk" = Android package.
     info = {
         "version": version,
         "notes": notes,
         "url": f"https://github.com/{REPO}/releases/download/{tag}/{asset}",
+        "apk": f"https://github.com/{REPO}/releases/download/{tag}/{apk_asset}",
     }
     with open(os.path.join(out, "version.json"), "w", encoding="utf-8") as f:
         json.dump(info, f, ensure_ascii=False, indent=2)
 
     run([
         "gh", "release", "create", tag,
-        os.path.join(out, asset), os.path.join(out, "version.json"),
+        os.path.join(out, asset), os.path.join(out, apk_asset), os.path.join(out, "version.json"),
         "--repo", REPO, "--title", f"Aurora VPN {version}",
         "--notes", notes or f"Aurora VPN {version}",
     ])
